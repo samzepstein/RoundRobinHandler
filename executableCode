@@ -1,0 +1,15 @@
+List<Lead> leadList = new List<Lead>();
+
+Lead lead1 = new Lead(FirstName = 'Test', LastName = 'RR11', Company = 'TESTSAM', Email = 'emia23@fs222f.com', Account__c = '0011K000023XEt2QAG');
+
+leadList.add(lead1);
+
+Lead lead2 = new Lead(FirstName = 'Test', LastName = 'RR21', Company = 'TESTSAM', Email = 'emia23@f33sf.com', Account__c = '0011K000023XEt2QAG');
+
+leadList.add(lead2);
+
+Lead lead3 = new Lead(FirstName = 'Test', LastName = 'RR31', Company = 'TESTSAM', Email = 'emia23@f44sf.com', Account__c = '0011K000023XEt2QAG');
+
+leadList.add(lead3);
+
+insert leadList;

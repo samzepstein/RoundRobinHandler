@@ -1,0 +1,20 @@
+List<ID> leadListIds = new List<ID>();
+
+List<Lead> leadList = [SELECT ID, OwnerId FROM Lead WHERE Name LIKE 'Test RR%' LIMIT 3];
+ 
+system.debug('leadList Size' + leadList.size());
+
+for(Lead l : leadList){
+    
+    l.OwnerId = '00G4N000001YLmS';
+    
+}
+
+If(leadList.size() == 3){
+    update leadList;
+}
+
+//leadListIds.add(lead1.id);
+
+//RoundRobinHandler.assignOwners(leadListIds);
+

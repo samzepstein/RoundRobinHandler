@@ -1,0 +1,117 @@
+public class RoundRobinHandler {
+    public static void setQueuePosition(List<RR_QueueMember__c> newMembers){
+        try{
+            List<AggregateResult> maxPositions = [SELECT Round_Robin_Queue__c, Max(Queue_Position__c) Position
+                                                  FROM RR_QueueMember__c 
+                                                  GROUP BY Round_Robin_Queue__c];
+            
+            Map<Id, Integer> queuePositionMap = new Map<Id,Integer>();
+            for(AggregateResult queueMember : maxPositions){
+                Integer position = Integer.valueOf((Decimal) queueMember.get('Position'));
+                Id rrQueue = (Id) queueMember.get('Round_Robin_Queue__c');
+                queuePositionMap.put(rrQueue,position);
+            }
+            
+            Map<Id, List<RR_QueueMember__c>> newMemberQueueMap = new Map<Id, List<RR_QueueMember__c>>();
+            for(RR_QueueMember__c newMember : newMembers){
+                Id queueId = newMember.Round_Robin_Queue__c;
+                if(newMemberQueueMap.containsKey(queueId)){
+                    List<RR_QueueMember__c> mems = (List<RR_QueueMember__c>) newMemberQueueMap.get(queueId);
+                    mems.add(newMember);
+                    newMemberQueueMap.put(queueId,mems);
+                }
+                else{
+                    newMemberQueueMap.put(queueId,new List<RR_QueueMember__c>{newMember});
+                }
+            }
+            
+            List<RR_QueueMember__c> memsForUpdate = new List<RR_QueueMember__c>();
+            
+            for(Id queueId : newMemberQueueMap.keySet()){
+                List<RR_QueueMember__c> mems = (List<RR_QueueMember__c>) newMemberQueueMap.get(queueId);
+                for(Integer i=0; i<mems.size(); i++){
+                    RR_QueueMember__c memForUpdate = mems[i];
+                    Integer currPosition = queuePositionMap.containsKey(memForUpdate.Round_Robin_Queue__c) ? 
+                        queuePositionMap.get(memForUpdate.Round_Robin_Queue__c) : 0;
+                    memForUpdate.Queue_Position__c = 1 + i + currPosition;
+                }
+            }
+        }
+        catch(Exception err){
+            String errMsg = 'Message: '+err.getMessage();
+            errMsg+='\nStack Trace: '+err.getStackTraceString();
+            Error_Log_Handler.errorHandler('RoundRobinHandler - setQueuePosition', errMsg);
+        }
+    }
+    
+    
+    
+    @future
+    public static void futureAssignOwners(List<Id> roundRobinLeadIds){
+        assignOwners(roundRobinLeadIds);
+    }
+    
+    public static void assignOwners(List<Id> roundRobinLeadIds){
+        try{
+
+            List<Lead> rrLeads = [SELECT Id, OwnerId FROM Lead WHERE Id IN :roundRobinLeadIds];
+            
+            Map<Id,List<Lead>> rrLeadMap = new Map<Id,List<Lead>>();
+            for(Lead rrLead : rrLeads){
+                Id queueId = rrLead.OwnerId;
+                List<Lead> rrLeadList = rrLeadMap.containsKey(queueId) ? 
+                    (List<Lead>)rrLeadMap.get(queueId) : new List<Lead>();
+                rrLeadList.add(rrLead);
+                rrLeadMap.put(queueId,rrLeadList);
+            }
+            
+            List<RR_QueueMember__c> rrMems = [SELECT Member__c, Round_Robin_Queue__c, 
+                                              Queue_Position__c, Round_Robin_Queue__r.Lead_Queue_ID__c
+                                              FROM RR_QueueMember__c 
+                                              ORDER BY Round_Robin_Queue__c, Queue_Position__c];
+            Map<Id,List<RR_QueueMember__c>> rrQueueMemMap = new Map<Id,List<RR_QueueMember__c>>();
+            for(RR_QueueMember__c rrMem : rrMems){
+                Id queueId = rrMem.Round_Robin_Queue__r.Lead_Queue_ID__c;
+                List<RR_QueueMember__c> rrMemList = rrQueueMemMap.containsKey(queueId) ? 
+                    (List<RR_QueueMember__c>)rrQueueMemMap.get(queueId) : new List<RR_QueueMember__c>();
+                rrMemList.add(rrMem);
+                rrQueueMemMap.put(queueId,rrMemList);
+            }
+            
+            List<Lead> leadsForUpdate = new List<Lead>();
+            List<RR_QueueMember__c> memsForUpdate = new List<RR_QueueMember__c>();
+            
+            for(Id queueId : rrLeadMap.keySet()){
+                List<Lead> rrQLeads = (List<Lead>) rrLeadMap.get(queueId);
+                List<RR_QueueMember__c> rrQMems = (List<RR_QueueMember__c>) rrQueueMemMap.get(queueId);
+                
+                Integer numLeads = rrQLeads.size();
+                Integer numMems = rrQMems.size();
+                
+                for(Integer i=0;i < numLeads + numMems;i++){
+                    
+                    Integer memIndex = i >= numMems ? Math.mod(i,numMems) : i;
+                    if(i < numLeads){
+                        Lead rrLead = rrQLeads[i];
+                        rrLead.OwnerId = rrQMems[memIndex].Member__c;
+                        leadsForUpdate.add(rrLead);
+                    }
+                    
+                    if(i >= numLeads){
+                        RR_QueueMember__c rrMem = rrQMems[memIndex];
+                        rrMem.Queue_Position__c = 1 + i - numLeads;
+                        memsForUpdate.add(rrMem);
+                    }
+                }
+            }
+            
+            update leadsForUpdate;
+            update memsForUpdate;
+        }
+        catch(Exception err){
+            String errMsg = 'Message: '+err.getMessage();
+            errMsg+='\nStack Trace: '+err.getStackTraceString();
+            Error_Log_Handler.errorHandler('RoundRobinHandler - setQueuePosition', errMsg);
+        }
+    }
+}

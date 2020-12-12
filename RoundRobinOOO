@@ -1,0 +1,84 @@
+public class RoundRobinOOO {
+    
+    
+        
+    public static void queueMemberOOO(List<RR_QueueMember__c> rrMembers){
+        
+        List<RR_QueueMember__c> membersToUpdate = new List<RR_QueueMember__c>();
+
+        List<RR_QueueMember__c> OOOMembers = new List<RR_QueueMember__c>();
+        
+        for(RR_QueueMember__c rrMember : rrMembers){
+            
+            if(rrMember.OOO__c == TRUE){
+                
+                OOOMembers.add(rrMember);
+                
+            }
+            
+            
+        }
+        
+       system.debug('OOOMembers: '+ OOOMembers);
+        
+       for(RR_QueueMember__c rrOOOMember : OOOMembers){
+           
+          Decimal queuePosition = rrOOOMember.Queue_Position__c;
+           
+           system.debug('queuePosition: '+ queuePosition);
+           
+          String rrQueueOOO = rrOOOMember.Round_Robin_Queue__r.Lead_Queue_Id__c;
+           
+
+           for(RR_QueueMember__c rrMember : rrMembers){
+               
+              String rrQueue = rrMember.Round_Robin_Queue__r.Lead_Queue_Id__c;
+               
+              Decimal rrQueuePosition = rrMember.Queue_Position__c;
+               
+              system.debug('rrQueuePosition: '+ rrQueuePosition);
+               
+              if(rrMember.OOO__c == FALSE && rrMember.Queue_Position__c > queuePosition && rrQueue == rrQueueOOO){
+                  
+                  rrMember.Queue_Position__c = rrQueuePosition - 1;
+                  
+                  system.debug('rrQueuePosition: '+ rrQueuePosition);
+                  
+                  membersToUpdate.add(rrMember);
+                  
+              }
+               
+           }
+           
+           rrOOOMember.Queue_Position__c = NULL;
+           
+       }
+        
+        system.debug('membersToUpdate: '+ membersToUpdate);
+        
+        system.debug('membersToUpdate.size(): '+ membersToUpdate.size());
+        
+        
+        system.debug('OOOMembers.size(): '+ OOOMembers.size());
+        
+        
+        
+        
+        
+        
+        
+        
+        //update membersToUpdate;
+        //update OOOMembers;
+        
+    }
+    
+    
+    public static void queueMemberBackInOffice(List<RR_QueueMember__c> backInOfficeMembers){
+        
+        
+        
+        
+    }
+
+}

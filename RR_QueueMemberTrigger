@@ -1,0 +1,17 @@
+trigger RR_QueueMemberTrigger on RR_QueueMember__c (before insert) {
+    
+    
+    if(Trigger.isBefore && Trigger.isInsert){
+        
+        
+        RoundRobinHandler.setQueuePosition(Trigger.new);
+        
+    }
+    
+    if(Trigger.isAfter && Trigger.isUpdate){
+        
+        //RoundRobinOOO.queueMemberOOO(Trigger.new);
+        
+        
+    }
+}

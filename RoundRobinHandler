@@ -53,147 +53,59 @@ public class RoundRobinHandler {
     
     public static void assignOwners(List<Id> roundRobinLeadIds){
         try{
-            
-            List<Lead> rrLeads = [SELECT Id, OwnerId FROM Lead WHERE Id IN :roundRobinLeadIds];
-            
-            
+
+            List<Lead> rrLeads = [SELECT Id, Pear_Deck_Lead_Formula__c, OwnerId FROM Lead 
+                                  WHERE Id IN :roundRobinLeadIds
+                                  AND Pear_Deck_Lead_Formula__c = False];
             
             Map<Id,List<Lead>> rrLeadMap = new Map<Id,List<Lead>>();
             for(Lead rrLead : rrLeads){
                 Id queueId = rrLead.OwnerId;
-                
                 List<Lead> rrLeadList = rrLeadMap.containsKey(queueId) ? 
                     (List<Lead>)rrLeadMap.get(queueId) : new List<Lead>();
                 rrLeadList.add(rrLead);
                 rrLeadMap.put(queueId,rrLeadList);
             }
             
-            //all rr members
-            List<RR_QueueMember__c> rrMems = [SELECT Id, Member__c, OOO__c, Round_Robin_Queue__c, 
+            List<RR_QueueMember__c> rrMems = [SELECT Member__c, Round_Robin_Queue__c, 
                                               Queue_Position__c, Round_Robin_Queue__r.Lead_Queue_ID__c
-                                              FROM RR_QueueMember__c 
+                                              FROM RR_QueueMember__c WHERE Queue_Position__c != NULL
                                               ORDER BY Round_Robin_Queue__c, Queue_Position__c];
-            
-            
-            
-            
-            
             Map<Id,List<RR_QueueMember__c>> rrQueueMemMap = new Map<Id,List<RR_QueueMember__c>>();
-            
             for(RR_QueueMember__c rrMem : rrMems){
                 Id queueId = rrMem.Round_Robin_Queue__r.Lead_Queue_ID__c;
                 List<RR_QueueMember__c> rrMemList = rrQueueMemMap.containsKey(queueId) ? 
                     (List<RR_QueueMember__c>)rrQueueMemMap.get(queueId) : new List<RR_QueueMember__c>();
-                
-                
                 rrMemList.add(rrMem);
                 rrQueueMemMap.put(queueId,rrMemList);
             }
             
-            
-            
-            system.debug('rrQueueMemMap: '+ rrQueueMemMap);
-            
             List<Lead> leadsForUpdate = new List<Lead>();
             List<RR_QueueMember__c> memsForUpdate = new List<RR_QueueMember__c>();
             
-            
             for(Id queueId : rrLeadMap.keySet()){
-                
-                
                 List<Lead> rrQLeads = (List<Lead>) rrLeadMap.get(queueId);
-                
-                List<RR_QueueMember__c> rrQMemsNotOOO = new List<RR_QueueMember__c>();
-                
                 List<RR_QueueMember__c> rrQMems = (List<RR_QueueMember__c>) rrQueueMemMap.get(queueId);
                 
-                for(RR_QueueMember__c rrMem : rrQMems){
-                    
-                    If(rrMem.OOO__c == FALSE){
-                        
-                        rrQMemsNotOOO.add(rrMem);
-                        
-                    }
-                    
-                }
-                
-                
-                system.debug('rrQMems: ' + rrQMems);
-                
-                //4
-                system.debug('rrQMems.size(): ' + rrQMems.size());
-                
-                
-                system.debug('rrQMemsNotOOO: ' + rrQMemsNotOOO);
-                
-                //3
-                system.debug('rrQMemsNotOOO.size(): ' + rrQMemsNotOOO.size());
-                
-                
                 Integer numLeads = rrQLeads.size();
-                Integer numMemsNotOOO = rrQMemsNotOOO.size();
+                Integer numMems = rrQMems.size();
                 
-                //2
-                system.debug('numLeads: ' + numLeads);
-                
-                //3
-                system.debug('numMemsNotOOO: ' + numMemsNotOOO);
-                
-                Integer numMemsAll = rrQMems.size();
-                
-                //4
-                system.debug('numMemsAll: ' + numMemsAll);
-                
-                //ASSIGN LEADS
-                for(Integer i=0;i < numLeads + numMemsNotOOO;i++){
+                for(Integer i=0;i < numLeads + numMems;i++){
                     
-                    system.debug('numLeads + numMemsNotOOO: ' + numLeads + ' + ' + numMemsNotOOO);
-                    
-                    Integer memIndex = i >= numMemsNotOOO ? Math.mod(i,numMemsNotOOO) : i;
-                    
-                    system.debug('memIndex: ' + memIndex);
+                    Integer memIndex = i >= numMems ? Math.mod(i,numMems) : i;
                     if(i < numLeads){
                         Lead rrLead = rrQLeads[i];
-                        rrLead.OwnerId = rrQMemsNotOOO[memIndex].Member__c;
+                        rrLead.OwnerId = rrQMems[memIndex].Member__c;
                         leadsForUpdate.add(rrLead);
-                        
-                        system.debug('rrLead.OwnerId: '+ rrLead.OwnerId);
                     }
                     
+                    if(i >= numLeads){
+                        RR_QueueMember__c rrMem = rrQMems[memIndex];
+                        rrMem.Queue_Position__c = 1 + i - numLeads;
+                        memsForUpdate.add(rrMem);
+                    }
                 }
-                
-                
-                //SET QUEUE POSITION
-                for(Integer i=0;i < numMemsAll - numLeads;i++){
-                    
-                    system.debug('numMemsAll - numLeads: ' + numMemsAll + ' - '  + numLeads);
-                    
-                    system.debug('i: '+i);
-                    
-                    Integer memIndexAll = i >= numMemsAll ? Math.mod(i,numMemsAll) : i;
-                    
-                    
-                    system.debug('memIndexAll: ' + memIndexAll);
-                    
-                    
-                    
-                    RR_QueueMember__c rrMem = rrQMems[memIndexAll];
-                    
-                    system.debug('rrMem: ' + rrMem);
-                    
-                    
-                    rrMem.Queue_Position__c = 1 + i - numLeads;
-                    memsForUpdate.add(rrMem); 
-                    
-                    
-                }
-                
             }
-            
-            
-            
-            
-            system.debug('memsForUpdate: ' + memsForUpdate);
             
             update leadsForUpdate;
             update memsForUpdate;
